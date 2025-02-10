@@ -24,14 +24,12 @@ def load_model():
     github_download_url = "https://github.com/Mingjis/my_project/releases/download/v1.0/fine_tuned_model.pt"
 
     if not os.path.exists(save_path):
-        st.write("📥 모델을 GitHub Releases에서 다운로드 중...")
         response = requests.get(github_download_url, stream=True)
         response.raise_for_status()
         with open(save_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
-        st.write("✅ 모델 다운로드 완료!")
 
     try:
         electra_model = ElectraModel.from_pretrained("monologg/koelectra-base-v3-discriminator")
