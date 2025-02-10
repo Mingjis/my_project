@@ -19,11 +19,12 @@ class KoELECTRAClassifier(torch.nn.Module):
 
 @st.cache_resource
 def load_model():
-    save_path = r"C:\Users\S3PARC\my_project\fine_tuned_model.pt"
-    file_id = "1Kyr_BF1yRYYBPihXcckI4972OA7Dpexs"
+    """Google Drive에서 모델 다운로드 후 로드"""
+    save_path = "/mount/src/my_project/fine_tuned_model.pt"
+    file_id = "1EEPYj9DVch5D1RNQoULFUrzvEl2lnAot"
     download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
 
-    if not os.path.exists(save_path) or os.path.getsize(save_path) < 450000000:
+    if not os.path.exists(save_path):
         st.write("Downloading model from Google Drive...")
         response = requests.get(download_url, stream=True)
         response.raise_for_status()
@@ -36,7 +37,9 @@ def load_model():
     try:
         electra_model = ElectraModel.from_pretrained("monologg/koelectra-base-v3-discriminator")
         model = KoELECTRAClassifier(electra=electra_model, output_size=412)
-        model.load_state_dict(torch.load(save_path, map_location="cpu"))
+        
+        model.load_state_dict(torch.load(save_path, map_location="cpu", weights_only=True))
+        
         model.eval()
         return model
     except RuntimeError as e:
