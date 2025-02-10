@@ -113,3 +113,8 @@ if st.button("Search"):
             law_detail = "관련 내용 없음"
 
         st.write(f"{i}. {cleaned_law} - {law_detail}")
+
+import torch
+import streamlit as st
+
+st.write(f"🔍 현재 Streamlit Cloud에서 실행 중인 PyTorch 버전: {torch.__version__}")
