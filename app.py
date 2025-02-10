@@ -118,3 +118,16 @@ import torch
 import streamlit as st
 
 st.write(f"🔍 현재 Streamlit Cloud에서 실행 중인 PyTorch 버전: {torch.__version__}")
+
+import os
+
+def check_model_file():
+    save_path = "fine_tuned_model.pt"
+    if os.path.exists(save_path):
+        file_size = os.path.getsize(save_path) / (1024 * 1024)
+        st.write(f"✅ 모델 파일 다운로드 완료! 파일 크기: {file_size:.2f} MB")
+    else:
+        st.write("❌ 모델 파일이 없습니다. 다운로드 확인 필요!")
+
+check_model_file()
+
