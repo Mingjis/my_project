@@ -3,3 +3,4 @@ torch==2.5.1
 transformers==4.48.3
 joblib==1.4.2
 requests
+scikit-learn
