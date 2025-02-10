@@ -19,7 +19,6 @@ class KoELECTRAClassifier(torch.nn.Module):
 
 @st.cache_resource
 def load_model():
-    """GitHub Releases에서 모델 다운로드 후 로드"""
     save_path = "fine_tuned_model.pt"
     github_download_url = "https://github.com/Mingjis/my_project/releases/download/v1.0/fine_tuned_model.pt"
 
@@ -43,7 +42,6 @@ def load_model():
         raise
 
 def load_law_details():
-    """ law_details.txt 파일을 로드하여 법령명과 법령 내용을 매핑 """
     law_dict = {}
     details_path = "law_details.txt"
 
@@ -56,10 +54,34 @@ def load_law_details():
                     law_dict[key] = value.strip()
     return law_dict
 
+def load_law_risks():
+    law_risk_dict = {}
+    risks_path = "law_risks.txt"
+
+    if os.path.exists(risks_path):
+        with open(risks_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if " , " in line and " / " in line:
+                    key, risks = line.split(" , ", 1)
+                    physical_risks, human_risks = risks.strip().split(" / ")
+                    law_risk_dict[key.strip()] = {
+                        "physical": set(physical_risks.split(";")),
+                        "human": set(human_risks.split(";")),
+                    }
+    return law_risk_dict
+
+def filter_laws_by_risks(physical_risk, human_risk, law_risks):
+    filtered_laws = []
+    for law, risks in law_risks.items():
+        if (physical_risk in risks["physical"]) or (human_risk in risks["human"]):
+            filtered_laws.append(law)
+    return filtered_laws
+
 model = load_model()
 tokenizer = ElectraTokenizer.from_pretrained("monologg/koelectra-base-v3-discriminator")
 label_encoder = joblib.load("label_encoder.pkl")
 law_details = load_law_details()
+law_risks = load_law_risks()
 
 st.title("Safety Legislation Recommendation for DfS report")
 
@@ -73,39 +95,47 @@ if st.button("Search"):
     keywords = [keyword1, keyword2, keyword3]
     input_text = f"{physical_risk} {human_risk} " + " ".join([k for k in keywords if k])
 
-    inputs = tokenizer(input_text, return_tensors="pt", padding=True, truncation=True, max_length=64)
+    filtered_laws = filter_laws_by_risks(physical_risk, human_risk, law_risks)
 
-    with torch.no_grad():
-        logits = model(inputs['input_ids'], attention_mask=inputs['attention_mask'])
-        probs = torch.nn.functional.softmax(logits, dim=1)
-        top_k_probs, top_k_indices = torch.topk(probs, k=3, dim=1)
+    if not filtered_laws:
+        st.warning("")
+    else:
+        st.write(f"")
 
-    top_k_indices = top_k_indices.squeeze().tolist()
-    if not isinstance(top_k_indices, list):
-        top_k_indices = [top_k_indices]
+        inputs = tokenizer(input_text, return_tensors="pt", padding=True, truncation=True, max_length=64)
 
-    predicted_laws = label_encoder.inverse_transform(top_k_indices)
+        with torch.no_grad():
+            logits = model(inputs['input_ids'], attention_mask=inputs['attention_mask'])
+            probs = torch.nn.functional.softmax(logits, dim=1)
+            top_k_probs, top_k_indices = torch.topk(probs, k=3, dim=1)
 
-    unique_laws = set()
-    final_laws = []
+        top_k_indices = top_k_indices.squeeze().tolist()
+        if not isinstance(top_k_indices, list):
+            top_k_indices = [top_k_indices]
 
-    for law in predicted_laws:
-        split_laws = re.split(r"(?=제\d+조)", law)
-        for l in split_laws:
-            cleaned_law = l.strip()
-            if cleaned_law and cleaned_law not in unique_laws:
-                unique_laws.add(cleaned_law)
-                final_laws.append(cleaned_law)
+        predicted_laws = label_encoder.inverse_transform(top_k_indices)
 
-    st.subheader("List of Recommendation:")
-    for i, law in enumerate(final_laws, start=1):
-        cleaned_law = law.strip() + " "
+        unique_laws = set()
+        final_laws = []
 
-        if cleaned_law in law_details:
-            law_detail = law_details[cleaned_law]
-        else:
-            st.write(f"🔍 '{cleaned_law}'을(를) 찾을 수 없음 → law_details.keys()와 비교 필요")
-            st.write(f"🔍 현재 저장된 키 값 샘플: {list(law_details.keys())[:10]}")
-            law_detail = "관련 내용 없음"
+        for law in predicted_laws:
+            if law in filtered_laws:
+                split_laws = re.split(r"(?=제\d+조)", law)
+                for l in split_laws:
+                    cleaned_law = l.strip()
+                    if cleaned_law and cleaned_law not in unique_laws:
+                        unique_laws.add(cleaned_law)
+                        final_laws.append(cleaned_law)
 
-        st.write(f"{i}. {cleaned_law} - {law_detail}")     
+        st.subheader("List of Recommendation:")
+        for i, law in enumerate(final_laws, start=1):
+            cleaned_law = law.strip() + " "
+
+            if cleaned_law in law_details:
+                law_detail = law_details[cleaned_law]
+            else:
+                st.write(f"🔍 '{cleaned_law}'을(를) 찾을 수 없음 → law_details.keys()와 비교 필요")
+                st.write(f"🔍 현재 저장된 키 값 샘플: {list(law_details.keys())[:10]}")
+                law_detail = "관련 내용 없음"
+
+            st.write(f"{i}. {cleaned_law} - {law_detail}")
