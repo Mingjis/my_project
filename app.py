@@ -96,11 +96,6 @@ if st.button("Search"):
     input_text = f"{physical_risk} {human_risk} " + " ".join([k for k in keywords if k])
 
     filtered_laws = filter_laws_by_risks(physical_risk, human_risk, law_risks)
-
-    if not filtered_laws:
-        st.warning("⚠️ 입력된 위험성과 일치하는 법령이 없습니다. 다른 키워드를 입력해주세요.")
-    else:
-        st.write(f"✅ {len(filtered_laws)}개의 법령이 1차 필터링되었습니다.")
     
         inputs = tokenizer(input_text, return_tensors="pt", padding=True, truncation=True, max_length=64)
 
