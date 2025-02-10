@@ -109,20 +109,37 @@ if st.button("Search"):
     input_text = f"{physical_risk} {human_risk} " + " ".join([k for k in keywords if k])
 
     filtered_laws = filter_laws_by_risks(physical_risk, human_risk, law_risks)
-
     similar_laws = get_most_similar_laws(input_text, law_details, min_similarity=0.3)
 
-    final_laws = list(set(filtered_laws) | set(similar_laws))
+    candidate_laws = list(set(filtered_laws) | set(similar_laws))  # **두 필터링 방식 결합**
 
-    st.subheader("List of Recommendation:")
-    for i, law in enumerate(final_laws, start=1):
-        cleaned_law = law.strip() + " "
+    if not candidate_laws:
+        st.warning("❌ 해당 위험성과 유사한 법령을 찾을 수 없습니다.")
+    else:
+        inputs = tokenizer(input_text, return_tensors="pt", padding=True, truncation=True, max_length=64)
 
-        if cleaned_law in law_details:
-            law_detail = law_details[cleaned_law]
-        else:
-            st.write(f"🔍 '{cleaned_law}'을(를) 찾을 수 없음 → law_details.keys()와 비교 필요")
-            st.write(f"🔍 현재 저장된 키 값 샘플: {list(law_details.keys())[:10]}")
-            law_detail = "관련 내용 없음"
+        with torch.no_grad():
+            logits = model(inputs['input_ids'], attention_mask=inputs['attention_mask'])
+            probs = torch.nn.functional.softmax(logits, dim=1)
+            top_k_probs, top_k_indices = torch.topk(probs, k=3, dim=1)
 
-        st.write(f"{i}. {cleaned_law} - {law_detail}")
+        top_k_indices = top_k_indices.squeeze().tolist()
+        if not isinstance(top_k_indices, list):
+            top_k_indices = [top_k_indices]
+
+        predicted_laws = label_encoder.inverse_transform(top_k_indices)
+
+        final_laws = [law for law in predicted_laws if law in candidate_laws]
+
+        st.subheader("List of Recommendation:")
+        for i, law in enumerate(final_laws, start=1):
+            cleaned_law = law.strip() + " "
+
+            if cleaned_law in law_details:
+                law_detail = law_details[cleaned_law]
+            else:
+                st.write(f"🔍 '{cleaned_law}'을(를) 찾을 수 없음 → law_details.keys()와 비교 필요")
+                st.write(f"🔍 현재 저장된 키 값 샘플: {list(law_details.keys())[:10]}")
+                law_detail = "관련 내용 없음"
+
+            st.write(f"{i}. {cleaned_law} - {law_detail}")
