@@ -19,6 +19,7 @@ class KoELECTRAClassifier(torch.nn.Module):
 
 @st.cache_resource
 def load_model():
+    """GitHub Releases에서 모델 다운로드 후 로드"""
     save_path = "fine_tuned_model.pt"
     github_download_url = "https://github.com/Mingjis/my_project/releases/download/v1.0/fine_tuned_model.pt"
 
@@ -42,6 +43,7 @@ def load_model():
         raise
 
 def load_law_details():
+    """ law_details.txt 파일을 로드하여 법령명과 법령 내용을 매핑 """
     law_dict = {}
     details_path = "law_details.txt"
 
@@ -84,8 +86,19 @@ if st.button("Search"):
 
     predicted_laws = label_encoder.inverse_transform(top_k_indices)
 
+    unique_laws = set()
+    final_laws = []
+
+    for law in predicted_laws:
+        split_laws = re.split(r"(?=제\d+조)", law)
+        for l in split_laws:
+            cleaned_law = l.strip()
+            if cleaned_law and cleaned_law not in unique_laws:
+                unique_laws.add(cleaned_law)
+                final_laws.append(cleaned_law)
+
     st.subheader("List of Recommendation:")
-    for i, law in enumerate(predicted_laws, start=1):
+    for i, law in enumerate(final_laws, start=1):
         cleaned_law = law.strip() + " "
 
         if cleaned_law in law_details:
@@ -95,4 +108,4 @@ if st.button("Search"):
             st.write(f"🔍 현재 저장된 키 값 샘플: {list(law_details.keys())[:10]}")
             law_detail = "관련 내용 없음"
 
-        st.write(f"{i}. {cleaned_law} - {law_detail}")
+        st.write(f"{i}. {cleaned_law} - {law_detail}")     
