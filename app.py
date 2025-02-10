@@ -71,6 +71,7 @@ def load_law_risks():
     return law_risk_dict
 
 def filter_laws_by_risks(physical_risk, human_risk, law_risks):
+    """물적/인적 위험성을 기반으로 1차 필터링"""
     filtered_laws = []
     for law, risks in law_risks.items():
         if (physical_risk in risks["physical"]) or (human_risk in risks["human"]):
@@ -99,35 +100,37 @@ if st.button("Search"):
 
     if not filtered_laws:
         st.warning("")
+        filtered_laws = None
+
+    inputs = tokenizer(input_text, return_tensors="pt", padding=True, truncation=True, max_length=64)
+
+    with torch.no_grad():
+        logits = model(inputs['input_ids'], attention_mask=inputs['attention_mask'])
+        probs = torch.nn.functional.softmax(logits, dim=1)
+        top_k_probs, top_k_indices = torch.topk(probs, k=5, dim=1)
+
+    top_k_indices = top_k_indices.squeeze().tolist()
+    if not isinstance(top_k_indices, list):
+        top_k_indices = [top_k_indices]
+
+    predicted_laws = label_encoder.inverse_transform(top_k_indices)
+
+    unique_laws = set()
+    final_laws = []
+
+    for law in predicted_laws:
+        if filtered_laws is None or law in filtered_laws:
+            split_laws = re.split(r"(?=제\d+조)", law)
+            for l in split_laws:
+                cleaned_law = l.strip()
+                if cleaned_law and cleaned_law not in unique_laws:
+                    unique_laws.add(cleaned_law)
+                    final_laws.append(cleaned_law)
+
+    st.subheader("List of Recommendation:")
+    if not final_laws:
+        st.write("❌ 추천할 법령이 없습니다.")
     else:
-        st.write(f"")
-
-        inputs = tokenizer(input_text, return_tensors="pt", padding=True, truncation=True, max_length=64)
-
-        with torch.no_grad():
-            logits = model(inputs['input_ids'], attention_mask=inputs['attention_mask'])
-            probs = torch.nn.functional.softmax(logits, dim=1)
-            top_k_probs, top_k_indices = torch.topk(probs, k=3, dim=1)
-
-        top_k_indices = top_k_indices.squeeze().tolist()
-        if not isinstance(top_k_indices, list):
-            top_k_indices = [top_k_indices]
-
-        predicted_laws = label_encoder.inverse_transform(top_k_indices)
-
-        unique_laws = set()
-        final_laws = []
-
-        for law in predicted_laws:
-            if law in filtered_laws:
-                split_laws = re.split(r"(?=제\d+조)", law)
-                for l in split_laws:
-                    cleaned_law = l.strip()
-                    if cleaned_law and cleaned_law not in unique_laws:
-                        unique_laws.add(cleaned_law)
-                        final_laws.append(cleaned_law)
-
-        st.subheader("List of Recommendation:")
         for i, law in enumerate(final_laws, start=1):
             cleaned_law = law.strip() + " "
 
