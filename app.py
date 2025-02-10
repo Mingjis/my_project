@@ -38,7 +38,7 @@ def load_model():
         electra_model = ElectraModel.from_pretrained("monologg/koelectra-base-v3-discriminator")
         model = KoELECTRAClassifier(electra=electra_model, output_size=412)
         
-        model.load_state_dict(torch.load(save_path, map_location="cpu", weights_only=False))
+        model.load_state_dict(torch.load(save_path, map_location="cpu"))
         
         model.eval()
         return model
