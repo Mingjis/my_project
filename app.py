@@ -19,37 +19,35 @@ class KoELECTRAClassifier(torch.nn.Module):
 
 @st.cache_resource
 def load_model():
-    """Google Drive에서 모델 다운로드 후 로드"""
-    save_path = "/mount/src/my_project/fine_tuned_model.pt"
-    file_id = "1EEPYj9DVch5D1RNQoULFUrzvEl2lnAot"
-    download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+    """GitHub Releases에서 모델 다운로드 후 로드"""
+    save_path = "fine_tuned_model.pt"
+    github_download_url = "https://github.com/Mingjis/my_project/releases/download/v1.0/fine_tuned_model.pt"
 
     if not os.path.exists(save_path):
-        st.write("Downloading model from Google Drive...")
-        response = requests.get(download_url, stream=True)
+        st.write("📥 모델을 GitHub Releases에서 다운로드 중...")
+        response = requests.get(github_download_url, stream=True)
         response.raise_for_status()
         with open(save_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
-        st.write("Model downloaded successfully.")
+        st.write("✅ 모델 다운로드 완료!")
 
     try:
         electra_model = ElectraModel.from_pretrained("monologg/koelectra-base-v3-discriminator")
         model = KoELECTRAClassifier(electra=electra_model, output_size=412)
-        
+
         model.load_state_dict(torch.load(save_path, map_location="cpu"))
-        
         model.eval()
         return model
     except RuntimeError as e:
-        st.error(f"Error loading the model: {e}")
+        st.error(f"❌ 모델 로드 중 오류 발생: {e}")
         raise
 
 def load_law_details():
     """ law_details.txt 파일을 로드하여 법령명과 법령 내용을 매핑 """
     law_dict = {}
-    details_path = r"C:\Users\S3PARC\my_project\law_details.txt"
+    details_path = "law_details.txt"
 
     if os.path.exists(details_path):
         with open(details_path, "r", encoding="utf-8") as f:
@@ -62,7 +60,7 @@ def load_law_details():
 
 model = load_model()
 tokenizer = ElectraTokenizer.from_pretrained("monologg/koelectra-base-v3-discriminator")
-label_encoder = joblib.load(r"C:\Users\S3PARC\my_project\label_encoder.pkl")
+label_encoder = joblib.load("label_encoder.pkl")
 law_details = load_law_details()
 
 st.title("Safety Legislation Recommendation for DfS report")
@@ -114,12 +112,7 @@ if st.button("Search"):
 
         st.write(f"{i}. {cleaned_law} - {law_detail}")
 
-import torch
-import streamlit as st
-
 st.write(f"🔍 현재 Streamlit Cloud에서 실행 중인 PyTorch 버전: {torch.__version__}")
-
-import os
 
 def check_model_file():
     save_path = "fine_tuned_model.pt"
