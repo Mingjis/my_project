@@ -96,6 +96,11 @@ if st.button("Search"):
     input_text = f"{physical_risk} {human_risk} " + " ".join([k for k in keywords if k])
 
     filtered_laws = filter_laws_by_risks(physical_risk, human_risk, law_risks)
+
+    if not filtered_laws:
+        st.warning("")
+    else:
+        st.write(f"")
     
         inputs = tokenizer(input_text, return_tensors="pt", padding=True, truncation=True, max_length=64)
 
