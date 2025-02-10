@@ -63,8 +63,8 @@ law_details = load_law_details()
 
 st.title("Safety Legislation Recommendation for DfS report")
 
-physical_risk = st.text_input("물적 위험성(필수) :")
-human_risk = st.text_input("인적 위험성(필수) :")
+physical_risk = st.text_input("물적위험성(필수) :")
+human_risk = st.text_input("인적위험성(필수) :")
 keyword1 = st.text_input("Keyword 1(필수) :")
 keyword2 = st.text_input("Keyword 2(선택) :")
 keyword3 = st.text_input("Keyword 3(선택) :")
