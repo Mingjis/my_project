@@ -5,8 +5,6 @@ from transformers import ElectraTokenizer, ElectraModel
 import os
 import requests
 import re
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
 class KoELECTRAClassifier(torch.nn.Module):
     def __init__(self, electra, output_size):
@@ -56,45 +54,10 @@ def load_law_details():
                     law_dict[key] = value.strip()
     return law_dict
 
-def load_law_risks():
-    law_risk_dict = {}
-    risks_path = "law_risks.txt"
-
-    if os.path.exists(risks_path):
-        with open(risks_path, "r", encoding="utf-8") as f:
-            for line in f:
-                if " , " in line and " / " in line:
-                    key, risks = line.split(" , ", 1)
-                    physical_risks, human_risks = risks.strip().split(" / ")
-                    law_risk_dict[key.strip()] = {
-                        "physical": set(physical_risks.split(";")),
-                        "human": set(human_risks.split(";")),
-                    }
-    return law_risk_dict
-
-def filter_laws_by_risks(physical_risk, human_risk, law_risks):
-    filtered_laws = []
-    for law, risks in law_risks.items():
-        if (physical_risk in risks["physical"]) or (human_risk in risks["human"]):
-            filtered_laws.append(law)
-    return filtered_laws
-
-def get_most_similar_laws(input_text, law_details, min_similarity=0.3):
-    """입력된 텍스트와 가장 유사한 법령을 TF-IDF + 코사인 유사도로 추천"""
-    all_texts = [input_text] + list(law_details.values())
-    vectorizer = TfidfVectorizer()
-    tfidf_matrix = vectorizer.fit_transform(all_texts)
-
-    similarity_scores = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
-    filtered_indices = [i for i, score in enumerate(similarity_scores) if score >= min_similarity]
-
-    return [list(law_details.keys())[i] for i in filtered_indices]
-
 model = load_model()
 tokenizer = ElectraTokenizer.from_pretrained("monologg/koelectra-base-v3-discriminator")
 label_encoder = joblib.load("label_encoder.pkl")
 law_details = load_law_details()
-law_risks = load_law_risks()
 
 st.title("Safety Legislation Recommendation for DfS report")
 
@@ -108,38 +71,28 @@ if st.button("Search"):
     keywords = [keyword1, keyword2, keyword3]
     input_text = f"{physical_risk} {human_risk} " + " ".join([k for k in keywords if k])
 
-    filtered_laws = filter_laws_by_risks(physical_risk, human_risk, law_risks)
-    similar_laws = get_most_similar_laws(input_text, law_details, min_similarity=0.3)
+    inputs = tokenizer(input_text, return_tensors="pt", padding=True, truncation=True, max_length=64)
 
-    candidate_laws = list(set(filtered_laws) | set(similar_laws))  # **두 필터링 방식 결합**
+    with torch.no_grad():
+        logits = model(inputs['input_ids'], attention_mask=inputs['attention_mask'])
+        probs = torch.nn.functional.softmax(logits, dim=1)
+        top_k_probs, top_k_indices = torch.topk(probs, k=3, dim=1)
 
-    if not candidate_laws:
-        st.warning("❌ 해당 위험성과 유사한 법령을 찾을 수 없습니다.")
-    else:
-        inputs = tokenizer(input_text, return_tensors="pt", padding=True, truncation=True, max_length=64)
+    top_k_indices = top_k_indices.squeeze().tolist()
+    if not isinstance(top_k_indices, list):
+        top_k_indices = [top_k_indices]
 
-        with torch.no_grad():
-            logits = model(inputs['input_ids'], attention_mask=inputs['attention_mask'])
-            probs = torch.nn.functional.softmax(logits, dim=1)
-            top_k_probs, top_k_indices = torch.topk(probs, k=3, dim=1)
+    predicted_laws = label_encoder.inverse_transform(top_k_indices)
 
-        top_k_indices = top_k_indices.squeeze().tolist()
-        if not isinstance(top_k_indices, list):
-            top_k_indices = [top_k_indices]
+    st.subheader("List of Recommendation:")
+    for i, law in enumerate(predicted_laws, start=1):
+        cleaned_law = law.strip() + " "
 
-        predicted_laws = label_encoder.inverse_transform(top_k_indices)
+        if cleaned_law in law_details:
+            law_detail = law_details[cleaned_law]
+        else:
+            st.write(f"🔍 '{cleaned_law}'을(를) 찾을 수 없음 → law_details.keys()와 비교 필요")
+            st.write(f"🔍 현재 저장된 키 값 샘플: {list(law_details.keys())[:10]}")
+            law_detail = "관련 내용 없음"
 
-        final_laws = [law for law in predicted_laws if law in candidate_laws]
-
-        st.subheader("List of Recommendation:")
-        for i, law in enumerate(final_laws, start=1):
-            cleaned_law = law.strip() + " "
-
-            if cleaned_law in law_details:
-                law_detail = law_details[cleaned_law]
-            else:
-                st.write(f"🔍 '{cleaned_law}'을(를) 찾을 수 없음 → law_details.keys()와 비교 필요")
-                st.write(f"🔍 현재 저장된 키 값 샘플: {list(law_details.keys())[:10]}")
-                law_detail = "관련 내용 없음"
-
-            st.write(f"{i}. {cleaned_law} - {law_detail}")
+        st.write(f"{i}. {cleaned_law} - {law_detail}")
