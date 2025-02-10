@@ -37,7 +37,7 @@ def load_model():
         electra_model = ElectraModel.from_pretrained("monologg/koelectra-base-v3-discriminator")
         model = KoELECTRAClassifier(electra=electra_model, output_size=412)
 
-        model.load_state_dict(torch.load(save_path, map_location="cpu"))
+        model = torch.load(save_path, map_location="cpu")
         model.eval()
         return model
     except RuntimeError as e:
