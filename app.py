@@ -84,7 +84,7 @@ label_encoder = joblib.load("label_encoder.pkl")
 law_details = load_law_details()
 law_risks = load_law_risks()
 
-st.title("Safety Legislation Recommendation")
+st.title("Safety Legislation Recommendation System")
 
 physical_risk = st.text_input("물적위험성(필수) :")
 human_risk = st.text_input("인적위험성(필수) :")
