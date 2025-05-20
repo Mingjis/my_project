@@ -1,7 +1,7 @@
 import streamlit as st
 import torch
 import joblib
-from transformers import ElectraTokenizer, ElectraModel
+from transformers import ElectraTokenizerFast, ElectraModel
 import os
 import requests
 import re
