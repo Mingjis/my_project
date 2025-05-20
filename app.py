@@ -79,7 +79,7 @@ def filter_laws_by_risks(physical_risk, human_risk, law_risks):
     return filtered_laws
 
 model = load_model()
-tokenizer = ElectraTokenizer.from_pretrained("monologg/koelectra-base-v3-discriminator")
+tokenizer = ElectraTokenizerFast.from_pretrained("monologg/koelectra-base-v3-discriminator")
 label_encoder = joblib.load("label_encoder.pkl")
 law_details = load_law_details()
 law_risks = load_law_risks()
